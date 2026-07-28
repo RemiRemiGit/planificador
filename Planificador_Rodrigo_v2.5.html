@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Planificador Rodrigo v2.5</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="App de planificación semanal con categorías, Pomodoro y Plan Operativo Anual">
+    <meta name="theme-color" content="#378ADD">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Planificador">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23378ADD' width='192' height='192'/><text x='50%' y='50%' font-size='100' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='central'>📋</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%23378ADD' width='180' height='180' rx='40'/><text x='50%' y='50%' font-size='90' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='central'>📋</text></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 1rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; background: white; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 18px; margin-bottom: 0.2rem; }
+        .header p { font-size: 10px; color: #666; }
+        .header-controls { display: flex; gap: 8px; }
+        .sort-buttons { display: flex; gap: 4px; }
+        .sort-btn { padding: 4px 6px; border: none; border-radius: 3px; font-size: 8px; font-weight: bold; cursor: pointer; background: #f0f0f0; color: #333; }
+        .sort-btn.active { background: #378ADD; color: white; }
+        .toggle-btn { padding: 4px 6px; border: none; border-radius: 3px; font-size: 8px; font-weight: bold; cursor: pointer; background: #f0f0f0; color: #333; }
+        .toggle-btn.active { background: #639922; color: white; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+        .category-card { background: white; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .category-header { padding: 6px; font-size: 11px; font-weight: bold; color: white; display: flex; justify-content: space-between; align-items: center; }
+        .category-header-text { flex: 1; }
+        .category-header-text:hover { opacity: 0.8; }
+        .tasks-list { padding: 4px; max-height: 300px; overflow-y: auto; }
+        .task-item { background: #f9f9f9; padding: 4px; border-radius: 3px; margin-bottom: 2px; display: flex; align-items: center; gap: 4px; font-size: 9px; border: 1px solid #e0e0e0; cursor: pointer; transition: all 0.2s; }
+        .task-item:hover { background: #f0f0f0; }
+        .task-item.completed { opacity: 0.5; display: none; }
+        .task-item.completed.show { display: flex; }
+        .task-item.completed span:nth-child(2) { text-decoration: line-through; }
+        .task-item.selected { background: #e6f1fb; border-color: #378ADD; }
+        .task-checkbox { width: 12px; height: 12px; cursor: pointer; }
+        .task-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .priority-badge { background: #378ADD; color: white; padding: 1px 3px; border-radius: 2px; font-size: 8px; font-weight: bold; white-space: nowrap; }
+        .time-badge { background: #BA7517; color: white; padding: 1px 3px; border-radius: 2px; font-size: 8px; font-weight: bold; white-space: nowrap; }
+        .coffee-badge { background: #8B6F47; color: white; padding: 1px 3px; border-radius: 2px; font-size: 8px; font-weight: bold; white-space: nowrap; }
+        .panel { background: #f5f5f5; padding: 0.8rem; border-radius: 6px; margin-bottom: 0.8rem; border: 1px solid #ddd; display: none; }
+        .panel.active { display: block; }
+        .panel h3 { font-size: 11px; font-weight: bold; margin-bottom: 0.6rem; }
+        .sliders { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem; }
+        .slider-group { }
+        .slider-group label { font-size: 9px; color: #666; display: block; margin-bottom: 2px; }
+        .slider-group input { width: 100%; height: 4px; }
+        .time-type-selector { display: flex; gap: 6px; margin-bottom: 0.6rem; }
+        .time-type-btn { flex: 1; padding: 6px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer; }
+        .time-type-btn.selected { background: #378ADD; color: white; border-color: #378ADD; }
+        .timer-options { display: flex; gap: 6px; margin-bottom: 0.6rem; }
+        .timer-opt-btn { flex: 1; padding: 6px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer; }
+        .timer-opt-btn.selected { background: #E24B4A; color: white; border-color: #E24B4A; }
+        .timer { background: #E24B4A; color: white; padding: 0.8rem; border-radius: 6px; margin-bottom: 0.8rem; text-align: center; display: none; }
+        .timer.active { display: block; }
+        .timer-time { font-size: 28px; font-weight: bold; margin: 0.3rem 0; font-family: monospace; }
+        .timer-buttons { display: flex; gap: 4px; justify-content: center; }
+        .timer-btn { padding: 4px 8px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer; }
+        .add-task { background: white; padding: 0.8rem; border-radius: 6px; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .input-group { display: flex; gap: 6px; margin-bottom: 0.6rem; }
+        .input-group input { flex: 1; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; }
+        .input-group button { padding: 6px 10px; background: #378ADD; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; }
+        .add-task-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; margin-bottom: 0.8rem; }
+        .control-group { }
+        .control-group label { font-size: 9px; color: #666; display: block; margin-bottom: 2px; }
+        .control-group input { width: 100%; height: 4px; }
+        .control-group-value { font-size: 10px; font-weight: bold; color: #333; }
+        .category-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+        .cat-btn { padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 9px; font-weight: normal; }
+        .cat-btn.selected { background: #e6f1fb; border-color: #378ADD; border-width: 2px; font-weight: bold; }
+        .close-btn { background: none; border: none; cursor: pointer; font-size: 14px; }
+        .start-pomodoro-btn { width: 100%; padding: 6px; background: #E24B4A; color: white; border: none; border-radius: 3px; font-size: 10px; font-weight: bold; cursor: pointer; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); max-width: 400px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-content h2 { font-size: 14px; margin-bottom: 1rem; }
+        .modal-input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; margin-bottom: 0.5rem; }
+        .modal-textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; margin-bottom: 0.5rem; font-family: Arial, sans-serif; resize: vertical; min-height: 300px; }
+        .modal-buttons { display: flex; gap: 6px; justify-content: flex-end; margin-top: 1rem; }
+        .modal-btn { padding: 8px 12px; border: none; border-radius: 4px; font-size: 10px; font-weight: bold; cursor: pointer; }
+        .modal-btn-primary { background: #378ADD; color: white; }
+        .modal-btn-secondary { background: #f0f0f0; color: #333; }
+        .category-item { background: #f9f9f9; padding: 0.8rem; border-radius: 4px; margin-bottom: 0.8rem; border: 1px solid #ddd; }
+        .category-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 0.6rem; }
+        .category-item-inputs { display: grid; grid-template-columns: 1fr 3fr; gap: 0.6rem; margin-bottom: 0.6rem; }
+        .category-item-buttons { display: flex; gap: 6px; }
+        .cat-item-btn { padding: 4px 8px; border: none; border-radius: 3px; font-size: 9px; cursor: pointer; }
+        .cat-item-delete { background: #E24B4A; color: white; }
+        .cat-item-delete:hover { background: #d63a38; }
+        .color-palette { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 0.6rem; padding: 0.6rem; background: #f5f5f5; border-radius: 4px; }
+        .color-box { width: 100%; aspect-ratio: 1; border-radius: 4px; border: 2px solid #ddd; cursor: pointer; transition: all 0.2s; }
+        .color-box:hover { transform: scale(1.1); border-color: #333; }
+        .color-box.selected { border-color: #333; border-width: 3px; }
+        .footer-buttons { display: flex; gap: 6px; justify-content: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; }
+        .footer-btn { padding: 8px 12px; border: none; border-radius: 4px; font-size: 10px; font-weight: bold; cursor: pointer; background: #639922; color: white; }
+        .footer-btn:hover { background: #527a1a; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>📋 Planificador v2.5</h1>
+                <p id="stats">4 pendientes | 4 completadas</p>
+            </div>
+            <div class="header-controls">
+                <button class="toggle-btn" onclick="toggleShowCompleted()" id="showCompletedBtn">Mostrar realizadas</button>
+                <button class="sort-btn" onclick="openCategoryManager()">➕ Categorías</button>
+                <div class="sort-buttons">
+                    <button class="sort-btn active" onclick="sortBy('manual')">Manual</button>
+                    <button class="sort-btn" onclick="sortBy('priority')">Prioridad</button>
+                    <button class="sort-btn" onclick="sortBy('time')">Tiempo</button>
+                    <button class="sort-btn" onclick="sortBy('name')">Nombre</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="panel" class="panel">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.6rem;">
+                <h3>⚙️ <span id="panelTitle"></span></h3>
+                <button class="close-btn" onclick="closePanel()">✕</button>
+            </div>
+            <div class="sliders">
+                <div class="slider-group">
+                    <label>Importancia: <span id="impValue">3</span></label>
+                    <input type="range" id="impSlider" min="1" max="5" value="3" onchange="updateActiveTask('importancia', this.value)">
+                </div>
+                <div class="slider-group">
+                    <label>Urgencia: <span id="urgValue">3</span></label>
+                    <input type="range" id="urgSlider" min="1" max="5" value="3" onchange="updateActiveTask('urgencia', this.value)">
+                </div>
+                <div class="slider-group">
+                    <label id="timeLabel">Pomodoros: <span id="pomValue">2</span></label>
+                    <input type="range" id="pomSlider" min="1" max="15" value="2" onchange="updateActiveTask('pomodoros', this.value)">
+                </div>
+            </div>
+            <div class="time-type-selector">
+                <button class="time-type-btn selected" id="pomodoroTypeBtn" onclick="setTimeType('pomodoro')">🍅 Pomodoro</button>
+                <button class="time-type-btn" id="coffeeTypeBtn" onclick="setTimeType('coffee')">☕ Café (< 5 min)</button>
+            </div>
+            <div class="timer-options">
+                <button class="timer-opt-btn selected" onclick="selectTimerType('pomodoro')">🍅 25 min (Pomodoro)</button>
+                <button class="timer-opt-btn" onclick="selectTimerType('quick')">⚡ 5 min (Rápido)</button>
+            </div>
+            <button class="start-pomodoro-btn" onclick="startPomodoro()">▶ Iniciar Timer</button>
+        </div>
+
+        <div id="timer" class="timer">
+            <p id="timerLabel" style="font-size: 11px; margin: 0 0 0.4rem;">Trabajando 💪</p>
+            <div class="timer-time" id="timerDisplay">25:00</div>
+            <div class="timer-buttons">
+                <button class="timer-btn" onclick="toggleTimer()">⏸ Pausar</button>
+                <button class="timer-btn" onclick="stopTimer()">✓ Completar</button>
+            </div>
+        </div>
+
+        <div class="add-task">
+            <div class="input-group">
+                <input type="text" id="newTaskInput" placeholder="Nueva tarea..." onkeypress="if(event.key==='Enter') addTask()">
+                <button onclick="addTask()">+</button>
+            </div>
+            
+            <div class="add-task-controls">
+                <div class="control-group">
+                    <label>Importancia: <span class="control-group-value" id="newImpValue">3</span></label>
+                    <input type="range" id="newImpSlider" min="1" max="5" value="3" onchange="updateNewTaskValues('imp', this.value)">
+                </div>
+                <div class="control-group">
+                    <label>Urgencia: <span class="control-group-value" id="newUrgValue">3</span></label>
+                    <input type="range" id="newUrgSlider" min="1" max="5" value="3" onchange="updateNewTaskValues('urg', this.value)">
+                </div>
+                <div class="control-group">
+                    <label id="newTimeLabel">Pomodoros: <span class="control-group-value" id="newPomValue">2</span></label>
+                    <input type="range" id="newPomSlider" min="1" max="15" value="2" onchange="updateNewTaskValues('pom', this.value)">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 6px; margin-bottom: 0.8rem;">
+                <button class="time-type-btn selected" id="newPomodoroTypeBtn" style="flex: 1;" onclick="setNewTimeType('pomodoro')">🍅 Pomodoro</button>
+                <button class="time-type-btn" id="newCoffeeTypeBtn" style="flex: 1;" onclick="setNewTimeType('coffee')">☕ Café (< 5 min)</button>
+            </div>
+
+            <div class="category-buttons" id="categoryButtons"></div>
+        </div>
+
+        <div class="grid" id="grid"></div>
+
+        <div class="footer-buttons">
+            <button class="footer-btn" onclick="openPlanOperativo()">🧭 Plan Operativo Anual</button>
+        </div>
+    </div>
+
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>Gestionar Categorías</h2>
+                <button class="close-btn" onclick="closeCategoryManager()">✕</button>
+            </div>
+            <div id="categoriesList"></div>
+            <div style="margin-top: 1rem; border-top: 1px solid #ddd; padding-top: 1rem;">
+                <h3 style="font-size: 12px; margin-bottom: 0.6rem;">Nueva Categoría</h3>
+                <input type="text" id="newCatIcon" class="modal-input" placeholder="Emoji (ej: 🎯)">
+                <input type="text" id="newCatName" class="modal-input" placeholder="Nombre">
+                <div class="modal-buttons" style="margin-top: 0.8rem; margin-bottom: 0;">
+                    <button class="modal-btn modal-btn-secondary" onclick="closeCategoryManager()">Cancelar</button>
+                    <button class="modal-btn modal-btn-primary" onclick="addCategory()">Agregar</button>
+                </div>
+            </div>
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ddd; text-align: center;">
+                <button class="modal-btn modal-btn-primary" style="background: #639922; width: 80%; font-size: 12px; padding: 10px;" onclick="closeCategoryManager()">✓ OK - Guardar cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="colorPickerModal" class="modal">
+        <div class="modal-content">
+            <h2 id="colorPickerTitle">Elegir Color</h2>
+            <div class="color-palette" id="colorPalette"></div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closeColorPicker()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="planOperativoModal" class="modal">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>🧭 Plan Operativo Anual</h2>
+                <button class="close-btn" onclick="closePlanOperativo()">✕</button>
+            </div>
+            <textarea id="planOperativoText" class="modal-textarea" placeholder="Ingresa aquí tu Plan Operativo Anual..."></textarea>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closePlanOperativo()">Cancelar</button>
+                <button class="modal-btn modal-btn-primary" style="background: #639922;" onclick="savePlanOperativo()">✓ OK - Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const COLOR_PALETTE = [
+            '#7F77DD', '#378ADD', '#1D9E75', '#639922', '#E24B4A', '#BA7517',
+            '#9C27B0', '#00BCD4', '#FF5722', '#4CAF50', '#FF9800', '#2196F3',
+            '#E91E63', '#009688', '#795548', '#607D8B', '#F44336', '#8BC34A',
+            '#CDDC39', '#FFC107', '#03A9F4', '#3F51B5'
+        ];
+
+        let categories = [
+            { id: 'ARQUITECTO', label: 'Arquitecto', icon: '🏛️', color: '#7F77DD' },
+            { id: 'DIRECTIVO', label: 'Directivo', icon: '📊', color: '#378ADD' },
+            { id: 'DIÁCONO', label: 'Diácono', icon: '🤝', color: '#1D9E75' },
+            { id: 'PERSONALES', label: 'Personales', icon: '🌟', color: '#639922' }
+        ];
+
+        let tasks = [
+            { id: 1, titulo: 'Diseñar arquitectura', categoria: 'ARQUITECTO', importancia: 5, urgencia: 4, pomodoros: 3, tipoTiempo: 'pomodoro', completada: false },
+            { id: 2, titulo: 'Revisar propuesta', categoria: 'ARQUITECTO', importancia: 4, urgencia: 5, pomodoros: 2, tipoTiempo: 'pomodoro', completada: true },
+            { id: 3, titulo: 'Reunión directivos', categoria: 'DIRECTIVO', importancia: 5, urgencia: 5, pomodoros: 1, tipoTiempo: 'pomodoro', completada: true },
+            { id: 4, titulo: 'Validar presupuesto', categoria: 'DIRECTIVO', importancia: 4, urgencia: 3, pomodoros: 2, tipoTiempo: 'pomodoro', completada: false },
+            { id: 5, titulo: 'Responder emails', categoria: 'DIÁCONO', importancia: 3, urgencia: 4, pomodoros: 2, tipoTiempo: 'coffee', completada: false },
+            { id: 6, titulo: 'Resolver issues', categoria: 'DIÁCONO', importancia: 2, urgencia: 4, pomodoros: 1, tipoTiempo: 'coffee', completada: true },
+            { id: 7, titulo: 'Ejercicio gimnasio', categoria: 'PERSONALES', importancia: 4, urgencia: 2, pomodoros: 2, tipoTiempo: 'pomodoro', completada: false },
+            { id: 8, titulo: 'Leer libro', categoria: 'PERSONALES', importancia: 3, urgencia: 1, pomodoros: 1, tipoTiempo: 'pomodoro', completada: false },
+        ];
+
+        let planOperativo = localStorage.getItem('planOperativoRodrigo') || '';
+
+        let selectedCategory = 'ARQUITECTO';
+        let activeTaskId = null;
+        let currentSort = 'manual';
+        let timerRunning = false;
+        let timeLeft = 25 * 60;
+        let timerInterval = null;
+        let showCompleted = false;
+        let selectedTimerType = 'pomodoro';
+        let colorPickingCategoryId = null;
+        let activeTaskTimeType = 'pomodoro';
+        
+        // Valores para nueva tarea
+        let newTaskValues = { imp: 3, urg: 3, pom: 2, tipoTiempo: 'pomodoro' };
+
+        function getPriority(task) {
+            return Math.round((task.importancia * 1.5 + task.urgencia) * 10) / 10;
+        }
+
+        function getTasksByCategory(catId) {
+            let ct = tasks.filter(t => t.categoria === catId);
+            if (currentSort === 'priority') ct.sort((a,b) => getPriority(b) - getPriority(a));
+            else if (currentSort === 'time') ct.sort((a,b) => b.pomodoros - a.pomodoros);
+            else if (currentSort === 'name') ct.sort((a,b) => a.titulo.localeCompare(b.titulo));
+            return ct;
+        }
+
+        function getTimeIcon(task) {
+            return task.tipoTiempo === 'coffee' ? '☕' : '🍅';
+        }
+
+        function getTimeBadgeClass(task) {
+            return task.tipoTiempo === 'coffee' ? 'coffee-badge' : 'time-badge';
+        }
+
+        function updateNewTaskValues(field, value) {
+            if (field === 'imp') {
+                newTaskValues.imp = parseInt(value);
+                document.getElementById('newImpValue').textContent = value;
+            } else if (field === 'urg') {
+                newTaskValues.urg = parseInt(value);
+                document.getElementById('newUrgValue').textContent = value;
+            } else if (field === 'pom') {
+                newTaskValues.pom = parseInt(value);
+                document.getElementById('newPomValue').textContent = value;
+            }
+        }
+
+        function setNewTimeType(type) {
+            newTaskValues.tipoTiempo = type;
+            document.getElementById('newPomodoroTypeBtn').classList.toggle('selected', type === 'pomodoro');
+            document.getElementById('newCoffeeTypeBtn').classList.toggle('selected', type === 'coffee');
+            
+            const label = document.getElementById('newTimeLabel');
+            const slider = document.getElementById('newPomSlider');
+            if (type === 'coffee') {
+                label.innerHTML = 'Café (1/4 pomodoro): <span class="control-group-value" id="newPomValue">2</span>';
+                slider.max = 4;
+                if (newTaskValues.pom > 4) {
+                    newTaskValues.pom = 2;
+                    slider.value = 2;
+                    document.getElementById('newPomValue').textContent = 2;
+                }
+            } else {
+                label.innerHTML = 'Pomodoros: <span class="control-group-value" id="newPomValue">' + newTaskValues.pom + '</span>';
+                slider.max = 15;
+            }
+        }
+
+        function setTimeType(type) {
+            activeTaskTimeType = type;
+            document.getElementById('pomodoroTypeBtn').classList.toggle('selected', type === 'pomodoro');
+            document.getElementById('coffeeTypeBtn').classList.toggle('selected', type === 'coffee');
+            
+            const label = document.getElementById('timeLabel');
+            const slider = document.getElementById('pomSlider');
+            if (type === 'coffee') {
+                label.innerHTML = 'Café (1/4 pomodoro): <span id="pomValue">2</span>';
+                slider.max = 4;
+                if (parseInt(slider.value) > 4) {
+                    slider.value = 2;
+                    document.getElementById('pomValue').textContent = 2;
+                }
+            } else {
+                label.innerHTML = 'Pomodoros: <span id="pomValue">' + slider.value + '</span>';
+                slider.max = 15;
+            }
+        }
+
+        function sortBy(type) {
+            currentSort = type;
+            document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            render();
+        }
+
+        function toggleShowCompleted() {
+            showCompleted = !showCompleted;
+            const btn = document.getElementById('showCompletedBtn');
+            if (showCompleted) {
+                btn.textContent = 'Ocultar realizadas';
+                btn.classList.add('active');
+            } else {
+                btn.textContent = 'Mostrar realizadas';
+                btn.classList.remove('active');
+            }
+            render();
+        }
+
+        function selectCategory(cat, btn) {
+            selectedCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        }
+
+        function toggleTask(id) {
+            tasks = tasks.map(t => t.id === id ? {...t, completada: !t.completada} : t);
+            render();
+        }
+
+        function editTaskTitle(id) {
+            const task = tasks.find(t => t.id === id);
+            const newTitle = prompt('Editar tarea:', task.titulo);
+            if (newTitle && newTitle.trim()) {
+                tasks = tasks.map(t => t.id === id ? {...t, titulo: newTitle} : t);
+                render();
+            }
+        }
+
+        function addTask() {
+            const input = document.getElementById('newTaskInput');
+            if (input.value.trim()) {
+                tasks.push({
+                    id: Date.now(),
+                    titulo: input.value,
+                    categoria: selectedCategory,
+                    importancia: newTaskValues.imp,
+                    urgencia: newTaskValues.urg,
+                    pomodoros: newTaskValues.pom,
+                    tipoTiempo: newTaskValues.tipoTiempo,
+                    completada: false
+                });
+                input.value = '';
+                newTaskValues = { imp: 3, urg: 3, pom: 2, tipoTiempo: 'pomodoro' };
+                document.getElementById('newImpSlider').value = 3;
+                document.getElementById('newUrgSlider').value = 3;
+                document.getElementById('newPomSlider').value = 2;
+                document.getElementById('newImpValue').textContent = 3;
+                document.getElementById('newUrgValue').textContent = 3;
+                document.getElementById('newPomValue').textContent = 2;
+                document.getElementById('newPomodoroTypeBtn').classList.add('selected');
+                document.getElementById('newCoffeeTypeBtn').classList.remove('selected');
+                render();
+            }
+        }
+
+        function selectTask(id) {
+            activeTaskId = id;
+            const task = tasks.find(t => t.id === id);
+            activeTaskTimeType = task.tipoTiempo;
+            document.getElementById('panelTitle').textContent = task.titulo;
+            document.getElementById('impSlider').value = task.importancia;
+            document.getElementById('impValue').textContent = task.importancia;
+            document.getElementById('urgSlider').value = task.urgencia;
+            document.getElementById('urgValue').textContent = task.urgencia;
+            document.getElementById('pomSlider').value = task.pomodoros;
+            document.getElementById('pomValue').textContent = task.pomodoros;
+            
+            // Actualizar tipo de tiempo
+            setTimeType(task.tipoTiempo);
+            
+            document.getElementById('panel').classList.add('active');
+            render();
+        }
+
+        function closePanel() {
+            activeTaskId = null;
+            document.getElementById('panel').classList.remove('active');
+            document.getElementById('timer').classList.remove('active');
+            render();
+        }
+
+        function updateActiveTask(field, value) {
+            tasks = tasks.map(t => t.id === activeTaskId ? {...t, [field]: parseInt(value)} : t);
+            if (field === 'importancia') document.getElementById('impValue').textContent = value;
+            if (field === 'urgencia') document.getElementById('urgValue').textContent = value;
+            if (field === 'pomodoros') document.getElementById('pomValue').textContent = value;
+            
+            // Actualizar tipoTiempo si cambia
+            const activeTask = tasks.find(t => t.id === activeTaskId);
+            if (activeTask) {
+                activeTask.tipoTiempo = activeTaskTimeType;
+            }
+            render();
+        }
+
+        function selectTimerType(type) {
+            selectedTimerType = type;
+            document.querySelectorAll('.timer-opt-btn').forEach(b => b.classList.remove('selected'));
+            event.target.classList.add('selected');
+        }
+
+        function startPomodoro() {
+            document.getElementById('timer').classList.add('active');
+            timeLeft = selectedTimerType === 'pomodoro' ? 25 * 60 : 5 * 60;
+            timerRunning = true;
+            updateTimer();
+        }
+
+        function toggleTimer() {
+            timerRunning = !timerRunning;
+            if (timerRunning) updateTimer();
+        }
+
+        function stopTimer() {
+            timerRunning = false;
+            document.getElementById('timer').classList.remove('active');
+            closePanel();
+        }
+
+        function updateTimer() {
+            if (!timerRunning) return;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                const mins = Math.floor(timeLeft / 60);
+                const secs = timeLeft % 60;
+                document.getElementById('timerDisplay').textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+                if (timeLeft <= 0) {
+                    timerRunning = false;
+                    clearInterval(timerInterval);
+                }
+            }, 1000);
+        }
+
+        function openPlanOperativo() {
+            document.getElementById('planOperativoText').value = planOperativo;
+            document.getElementById('planOperativoModal').classList.add('active');
+        }
+
+        function closePlanOperativo() {
+            document.getElementById('planOperativoModal').classList.remove('active');
+        }
+
+        function savePlanOperativo() {
+            planOperativo = document.getElementById('planOperativoText').value;
+            localStorage.setItem('planOperativoRodrigo', planOperativo);
+            closePlanOperativo();
+            alert('✅ Plan Operativo Anual guardado correctamente');
+        }
+
+        function openCategoryManager() {
+            document.getElementById('categoryModal').classList.add('active');
+            renderCategoryList();
+        }
+
+        function closeCategoryManager() {
+            document.getElementById('categoryModal').classList.remove('active');
+        }
+
+        function renderCategoryList() {
+            const list = document.getElementById('categoriesList');
+            list.innerHTML = categories.map(cat => `
+                <div class="category-item">
+                    <div class="category-item-header">
+                        <span style="font-size: 16px;">${cat.icon}</span>
+                        <span style="font-weight: bold; color: #333;">${cat.label}</span>
+                        <span style="font-size: 10px; color: #999; margin-left: auto;">${cat.color}</span>
+                    </div>
+                    <div class="category-item-inputs">
+                        <input type="text" value="${cat.icon}" onchange="updateCategoryField('${cat.id}', 'icon', this.value)" class="modal-input" placeholder="Emoji">
+                        <input type="text" value="${cat.label}" onchange="updateCategoryField('${cat.id}', 'label', this.value)" class="modal-input" placeholder="Nombre">
+                    </div>
+                    <div class="category-item-buttons">
+                        <button class="cat-item-btn" onclick="openColorPicker('${cat.id}')" style="background: ${cat.color}; color: white;">🎨 Color</button>
+                        <button class="cat-item-btn cat-item-delete" onclick="deleteCategory('${cat.id}')">❌ Eliminar</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateCategoryField(catId, field, value) {
+            categories = categories.map(c => c.id === catId ? {...c, [field]: value} : c);
+            render();
+            renderCategoryList();
+        }
+
+        function openColorPicker(catId) {
+            colorPickingCategoryId = catId;
+            const cat = categories.find(c => c.id === catId);
+            document.getElementById('colorPickerTitle').textContent = `Elegir color para ${cat.label}`;
+            
+            const palette = document.getElementById('colorPalette');
+            palette.innerHTML = COLOR_PALETTE.map(color => `
+                <div class="color-box ${cat.color === color ? 'selected' : ''}" style="background: ${color};" onclick="selectColor('${color}')"></div>
+            `).join('');
+            
+            document.getElementById('colorPickerModal').classList.add('active');
+        }
+
+        function selectColor(color) {
+            if (colorPickingCategoryId) {
+                categories = categories.map(c => c.id === colorPickingCategoryId ? {...c, color: color} : c);
+                render();
+                renderCategoryList();
+                
+                document.querySelectorAll('.color-box').forEach(box => {
+                    box.classList.remove('selected');
+                    if (box.style.background === color || rgb2hex(box.style.background) === color) {
+                        box.classList.add('selected');
+                    }
+                });
+            }
+        }
+
+        function rgb2hex(rgb) {
+            if (!rgb || rgb === 'transparent') return null;
+            if (rgb.startsWith('#')) return rgb;
+            const matches = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+            if (!matches) return null;
+            return '#' + [parseInt(matches[1]), parseInt(matches[2]), parseInt(matches[3])].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+        }
+
+        function closeColorPicker() {
+            document.getElementById('colorPickerModal').classList.remove('active');
+            colorPickingCategoryId = null;
+        }
+
+        function addCategory() {
+            const icon = document.getElementById('newCatIcon').value.trim();
+            const name = document.getElementById('newCatName').value.trim();
+            if (name && icon) {
+                const randomColor = COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
+                categories.push({
+                    id: name.toUpperCase().replace(/ /g, '_'),
+                    label: name,
+                    icon: icon,
+                    color: randomColor
+                });
+                document.getElementById('newCatName').value = '';
+                document.getElementById('newCatIcon').value = '';
+                renderCategoryList();
+                render();
+            }
+        }
+
+        function deleteCategory(catId) {
+            if (confirm('¿Eliminar esta categoría y sus tareas?')) {
+                categories = categories.filter(c => c.id !== catId);
+                tasks = tasks.filter(t => t.categoria !== catId);
+                renderCategoryList();
+                render();
+            }
+        }
+
+        function render() {
+            const completed = tasks.filter(t => t.completada).length;
+            const pending = tasks.length - completed;
+            document.getElementById('stats').textContent = `${pending} pendientes | ${completed} completadas`;
+
+            let catButtonsHtml = categories.map(cat => `
+                <button class="cat-btn ${selectedCategory === cat.id ? 'selected' : ''}" onclick="selectCategory('${cat.id}', this)">${cat.icon} ${cat.label}</button>
+            `).join('');
+            document.getElementById('categoryButtons').innerHTML = catButtonsHtml;
+
+            let html = '';
+            categories.forEach(cat => {
+                const catTasks = getTasksByCategory(cat.id);
+                const catComplete = catTasks.filter(t => t.completada).length;
+                html += `
+                    <div class="category-card">
+                        <div class="category-header" style="background: ${cat.color};">
+                            <div class="category-header-text">${cat.icon} ${cat.label}</div>
+                            <span>${catComplete}/${catTasks.length}</span>
+                        </div>
+                        <div class="tasks-list">
+                            ${catTasks.map(task => `
+                                <div class="task-item ${task.completada ? 'completed' : ''} ${showCompleted && task.completada ? 'show' : ''} ${activeTaskId === task.id ? 'selected' : ''}" onclick="selectTask(${task.id})">
+                                    <input type="checkbox" class="task-checkbox" ${task.completada ? 'checked' : ''} onclick="event.stopPropagation(); toggleTask(${task.id});">
+                                    <span class="task-title" ondblclick="event.stopPropagation(); editTaskTitle(${task.id})">${task.titulo}</span>
+                                    <span class="priority-badge">${getPriority(task)}</span>
+                                    <span class="${getTimeBadgeClass(task)}">${task.pomodoros}${getTimeIcon(task)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('grid').innerHTML = html;
+        }
+
+        render();
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registrado:', registration);
+                    })
+                    .catch(error => {
+                        console.log('❌ Error registrando Service Worker:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
