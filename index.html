@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Planificador Rodrigo v3.0</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="App de planificación semanal con categorías, Pomodoro y Plan Operativo Anual">
+    <meta name="theme-color" content="#378ADD">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Planificador">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23378ADD' width='192' height='192'/><text x='50%25' y='50%25' font-size='100' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='central'>📋</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%23378ADD' width='180' height='180' rx='40'/><text x='50%25' y='50%25' font-size='90' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='central'>📋</text></svg>">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 1rem; }
+        .container { max-width: 900px; margin: 0 auto; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; background: white; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); flex-wrap: wrap; gap: 8px; }
+        .header h1 { font-size: 18px; margin-bottom: 0.2rem; }
+        .header p { font-size: 10px; color: #666; }
+        .header-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+        .sort-buttons { display: flex; gap: 4px; }
+        .sort-btn { padding: 4px 6px; border: none; border-radius: 3px; font-size: 8px; font-weight: bold; cursor: pointer; background: #f0f0f0; color: #333; }
+        .sort-btn.active { background: #378ADD; color: white; }
+        .toggle-btn { padding: 4px 6px; border: none; border-radius: 3px; font-size: 8px; font-weight: bold; cursor: pointer; background: #f0f0f0; color: #333; }
+        .toggle-btn.active { background: #639922; color: white; }
+
+        /* CATEGORY TABS - always on top */
+        .category-tabs { display: flex; gap: 6px; flex-wrap: wrap; background: white; padding: 0.6rem; border-radius: 6px; margin-bottom: 0.8rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: sticky; top: 0.5rem; z-index: 50; }
+        .category-tab { flex: 1; min-width: 90px; padding: 8px 6px; border-radius: 6px; border: 2px solid transparent; cursor: pointer; text-align: center; color: white; font-size: 11px; font-weight: bold; transition: all 0.15s; opacity: 0.55; }
+        .category-tab.active { opacity: 1; border-color: #333; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.25); }
+        .category-tab .tab-count { display: block; font-size: 9px; font-weight: normal; margin-top: 2px; }
+        .manage-cat-btn { padding: 8px 10px; border-radius: 6px; border: 1px dashed #999; background: white; cursor: pointer; font-size: 10px; font-weight: bold; color: #555; }
+
+        .tasks-panel { background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 1rem; overflow: hidden; }
+        .tasks-panel-header { padding: 8px 10px; font-size: 12px; font-weight: bold; color: white; display: flex; justify-content: space-between; align-items: center; }
+        .tasks-list { padding: 6px; max-height: 420px; overflow-y: auto; }
+        .task-item { background: #f9f9f9; padding: 6px; border-radius: 4px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; font-size: 10px; border: 1px solid #e0e0e0; cursor: pointer; transition: all 0.2s; }
+        .task-item:hover { background: #f0f0f0; }
+        .task-item.completed { opacity: 0.5; display: none; }
+        .task-item.completed.show { display: flex; }
+        .task-item.completed span.task-title { text-decoration: line-through; }
+        .task-item.selected { background: #eef6ff; }
+        .task-checkbox { width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+        .task-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .priority-badge { color: white; padding: 2px 4px; border-radius: 3px; font-size: 8px; font-weight: bold; white-space: nowrap; }
+        .time-badge { background: #BA7517; color: white; padding: 2px 4px; border-radius: 3px; font-size: 8px; font-weight: bold; white-space: nowrap; }
+        .coffee-badge { background: #8B6F47; color: white; padding: 2px 4px; border-radius: 3px; font-size: 8px; font-weight: bold; white-space: nowrap; }
+        .task-delete-x { background: none; border: none; color: #c0392b; font-size: 13px; cursor: pointer; padding: 0 3px; flex-shrink: 0; }
+        .empty-state { padding: 2rem; text-align: center; color: #999; font-size: 11px; }
+
+        .panel { padding: 0.8rem; border-radius: 6px; margin-bottom: 0.8rem; border: 2px solid #ddd; display: none; background: #fafafa; }
+        .panel.active { display: block; }
+        .panel h3 { font-size: 12px; font-weight: bold; margin-bottom: 0.6rem; color: white; padding: 6px 8px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .sliders { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem; }
+        .slider-group label { font-size: 9px; color: #444; display: block; margin-bottom: 2px; font-weight: bold; }
+        .slider-group input { width: 100%; height: 4px; }
+        .time-type-selector { display: flex; gap: 6px; margin-bottom: 0.6rem; }
+        .time-type-btn { flex: 1; padding: 6px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer; }
+        .time-type-btn.selected { color: white; }
+        .timer-options { display: flex; gap: 6px; margin-bottom: 0.6rem; }
+        .timer-opt-btn { flex: 1; padding: 6px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer; }
+        .timer-opt-btn.selected { background: #E24B4A; color: white; border-color: #E24B4A; }
+        .start-pomodoro-btn { width: 100%; padding: 7px; background: #E24B4A; color: white; border: none; border-radius: 3px; font-size: 10px; font-weight: bold; cursor: pointer; margin-bottom: 6px; }
+        .panel-actions { display: flex; gap: 6px; }
+        .panel-action-btn { flex: 1; padding: 7px; border: none; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer; }
+        .btn-move { background: #555; color: white; }
+        .btn-delete { background: #E24B4A; color: white; }
+        .move-selector { display: none; gap: 6px; flex-wrap: wrap; margin-top: 6px; margin-bottom: 6px; }
+        .move-selector.active { display: flex; }
+        .move-opt-btn { padding: 6px 8px; border-radius: 4px; border: 1px solid #ccc; color: white; font-size: 9px; font-weight: bold; cursor: pointer; }
+
+        .timer { background: #E24B4A; color: white; padding: 0.8rem; border-radius: 6px; margin-bottom: 0.8rem; text-align: center; display: none; }
+        .timer.active { display: block; }
+        .timer-time { font-size: 28px; font-weight: bold; margin: 0.3rem 0; font-family: monospace; }
+        .timer-buttons { display: flex; gap: 4px; justify-content: center; }
+        .timer-btn { padding: 4px 8px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer; }
+
+        .add-task { background: white; padding: 0.8rem; border-radius: 6px; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .add-task-title { font-size: 11px; font-weight: bold; margin-bottom: 0.5rem; color: #555; }
+        .input-group { display: flex; gap: 6px; margin-bottom: 0.6rem; }
+        .input-group input { flex: 1; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; }
+        .input-group button { padding: 6px 10px; background: #378ADD; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; }
+        .add-task-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; margin-bottom: 0.8rem; }
+        .control-group label { font-size: 9px; color: #666; display: block; margin-bottom: 2px; }
+        .control-group input { width: 100%; height: 4px; }
+        .control-group-value { font-size: 10px; font-weight: bold; color: #333; }
+        .adding-to-label { font-size: 10px; margin-bottom: 0.6rem; padding: 6px 8px; border-radius: 4px; color: white; font-weight: bold; }
+
+        .close-btn { background: rgba(255,255,255,0.3); border: none; cursor: pointer; font-size: 12px; color: white; border-radius: 3px; padding: 2px 6px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); max-width: 400px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-content h2 { font-size: 14px; margin-bottom: 1rem; }
+        .modal-input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; margin-bottom: 0.5rem; }
+        .modal-textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; margin-bottom: 0.5rem; font-family: Arial, sans-serif; resize: vertical; min-height: 300px; }
+        .modal-buttons { display: flex; gap: 6px; justify-content: flex-end; margin-top: 1rem; }
+        .modal-btn { padding: 8px 12px; border: none; border-radius: 4px; font-size: 10px; font-weight: bold; cursor: pointer; }
+        .modal-btn-primary { background: #378ADD; color: white; }
+        .modal-btn-secondary { background: #f0f0f0; color: #333; }
+        .category-item { background: #f9f9f9; padding: 0.8rem; border-radius: 4px; margin-bottom: 0.8rem; border: 1px solid #ddd; }
+        .category-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 0.6rem; }
+        .category-item-inputs { display: grid; grid-template-columns: 1fr 3fr; gap: 0.6rem; margin-bottom: 0.6rem; }
+        .category-item-buttons { display: flex; gap: 6px; }
+        .cat-item-btn { padding: 4px 8px; border: none; border-radius: 3px; font-size: 9px; cursor: pointer; }
+        .cat-item-delete { background: #E24B4A; color: white; }
+        .color-palette { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 0.6rem; padding: 0.6rem; background: #f5f5f5; border-radius: 4px; }
+        .color-box { width: 100%; aspect-ratio: 1; border-radius: 4px; border: 2px solid #ddd; cursor: pointer; transition: all 0.2s; }
+        .color-box:hover { transform: scale(1.1); border-color: #333; }
+        .color-box.selected { border-color: #333; border-width: 3px; }
+
+        .footer-buttons { display: flex; gap: 6px; justify-content: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ddd; }
+        .footer-btn { padding: 8px 12px; border: none; border-radius: 4px; font-size: 10px; font-weight: bold; cursor: pointer; background: #639922; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>📋 Planificador</h1>
+                <p id="stats">4 pendientes | 4 completadas</p>
+            </div>
+            <div class="header-controls">
+                <button class="toggle-btn" onclick="toggleShowCompleted()" id="showCompletedBtn">Mostrar realizadas</button>
+                <div class="sort-buttons">
+                    <button class="sort-btn active" onclick="sortBy('manual')">Manual</button>
+                    <button class="sort-btn" onclick="sortBy('priority')">Prioridad</button>
+                    <button class="sort-btn" onclick="sortBy('time')">Tiempo</button>
+                    <button class="sort-btn" onclick="sortBy('name')">Nombre</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CATEGORY TABS: always visible on top -->
+        <div class="category-tabs" id="categoryTabs"></div>
+
+        <!-- Active category task list -->
+        <div class="tasks-panel" id="tasksPanel"></div>
+
+        <div id="panel" class="panel">
+            <h3 id="panelTitleBar">
+                <span id="panelTitle"></span>
+                <button class="close-btn" onclick="closePanel()">✕ Cerrar</button>
+            </h3>
+            <div class="sliders">
+                <div class="slider-group">
+                    <label>Importancia: <span id="impValue">3</span></label>
+                    <input type="range" id="impSlider" min="1" max="5" value="3" onchange="updateActiveTask('importancia', this.value)">
+                </div>
+                <div class="slider-group">
+                    <label>Urgencia: <span id="urgValue">3</span></label>
+                    <input type="range" id="urgSlider" min="1" max="5" value="3" onchange="updateActiveTask('urgencia', this.value)">
+                </div>
+                <div class="slider-group">
+                    <label id="timeLabel">Pomodoros: <span id="pomValue">2</span></label>
+                    <input type="range" id="pomSlider" min="1" max="15" value="2" onchange="updateActiveTask('pomodoros', this.value)">
+                </div>
+            </div>
+            <div class="time-type-selector">
+                <button class="time-type-btn selected" id="pomodoroTypeBtn" onclick="setTimeType('pomodoro')">🍅 Pomodoro</button>
+                <button class="time-type-btn" id="coffeeTypeBtn" onclick="setTimeType('coffee')">☕ Café (&lt; 5 min)</button>
+            </div>
+            <div class="timer-options">
+                <button class="timer-opt-btn selected" onclick="selectTimerType('pomodoro')">🍅 25 min</button>
+                <button class="timer-opt-btn" onclick="selectTimerType('quick')">⚡ 5 min</button>
+            </div>
+            <button class="start-pomodoro-btn" onclick="startPomodoro()">▶ Iniciar Timer</button>
+
+            <div class="panel-actions">
+                <button class="panel-action-btn btn-move" onclick="toggleMoveSelector()">↔ Mover a otra categoría</button>
+                <button class="panel-action-btn btn-delete" onclick="deleteActiveTask()">🗑 Eliminar tarea</button>
+            </div>
+            <div class="move-selector" id="moveSelector"></div>
+        </div>
+
+        <div id="timer" class="timer">
+            <p id="timerLabel" style="font-size: 11px; margin: 0 0 0.4rem;">Trabajando 💪</p>
+            <div class="timer-time" id="timerDisplay">25:00</div>
+            <div class="timer-buttons">
+                <button class="timer-btn" onclick="toggleTimer()">⏸ Pausar</button>
+                <button class="timer-btn" onclick="stopTimer()">✓ Completar</button>
+            </div>
+        </div>
+
+        <div class="add-task">
+            <div class="adding-to-label" id="addingToLabel">Agregando a: Arquitecto</div>
+            <div class="input-group">
+                <input type="text" id="newTaskInput" placeholder="Nueva tarea..." onkeypress="if(event.key==='Enter') addTask()">
+                <button onclick="addTask()">+</button>
+            </div>
+
+            <div class="add-task-controls">
+                <div class="control-group">
+                    <label>Importancia: <span class="control-group-value" id="newImpValue">3</span></label>
+                    <input type="range" id="newImpSlider" min="1" max="5" value="3" onchange="updateNewTaskValues('imp', this.value)">
+                </div>
+                <div class="control-group">
+                    <label>Urgencia: <span class="control-group-value" id="newUrgValue">3</span></label>
+                    <input type="range" id="newUrgSlider" min="1" max="5" value="3" onchange="updateNewTaskValues('urg', this.value)">
+                </div>
+                <div class="control-group">
+                    <label id="newTimeLabel">Pomodoros: <span class="control-group-value" id="newPomValue">2</span></label>
+                    <input type="range" id="newPomSlider" min="1" max="15" value="2" onchange="updateNewTaskValues('pom', this.value)">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 6px;">
+                <button class="time-type-btn selected" id="newPomodoroTypeBtn" style="flex: 1;" onclick="setNewTimeType('pomodoro')">🍅 Pomodoro</button>
+                <button class="time-type-btn" id="newCoffeeTypeBtn" style="flex: 1;" onclick="setNewTimeType('coffee')">☕ Café (&lt; 5 min)</button>
+            </div>
+        </div>
+
+        <div class="footer-buttons">
+            <button class="footer-btn" style="background:#555;" onclick="openCategoryManager()">➕ Gestionar Categorías</button>
+            <button class="footer-btn" onclick="openPlanOperativo()">🧭 Plan Operativo Anual</button>
+        </div>
+    </div>
+
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>Gestionar Categorías</h2>
+                <button class="close-btn" style="color:#333; background:#eee;" onclick="closeCategoryManager()">✕</button>
+            </div>
+            <div id="categoriesList"></div>
+            <div style="margin-top: 1rem; border-top: 1px solid #ddd; padding-top: 1rem;">
+                <h3 style="font-size: 12px; margin-bottom: 0.6rem;">Nueva Categoría</h3>
+                <input type="text" id="newCatIcon" class="modal-input" placeholder="Emoji (ej: 🎯)">
+                <input type="text" id="newCatName" class="modal-input" placeholder="Nombre">
+                <div class="modal-buttons" style="margin-top: 0.8rem; margin-bottom: 0;">
+                    <button class="modal-btn modal-btn-secondary" onclick="closeCategoryManager()">Cancelar</button>
+                    <button class="modal-btn modal-btn-primary" style="background:#639922;" onclick="acceptCategoryChanges()">✓ Aceptar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="colorPickerModal" class="modal">
+        <div class="modal-content">
+            <h2 id="colorPickerTitle">Elegir Color</h2>
+            <div class="color-palette" id="colorPalette"></div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closeColorPicker()">Cancelar</button>
+                <button class="modal-btn modal-btn-primary" style="background:#639922;" onclick="acceptColorPicker()">✓ Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="planOperativoModal" class="modal">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>🧭 Plan Operativo Anual</h2>
+                <button class="close-btn" style="color:#333; background:#eee;" onclick="closePlanOperativo()">✕</button>
+            </div>
+            <textarea id="planOperativoText" class="modal-textarea" placeholder="Ingresa aquí tu Plan Operativo Anual..."></textarea>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closePlanOperativo()">Cancelar</button>
+                <button class="modal-btn modal-btn-primary" style="background: #639922;" onclick="savePlanOperativo()">✓ OK - Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const COLOR_PALETTE = [
+            '#7F77DD', '#378ADD', '#1D9E75', '#639922', '#E24B4A', '#BA7517',
+            '#9C27B0', '#00BCD4', '#FF5722', '#4CAF50', '#FF9800', '#2196F3',
+            '#E91E63', '#009688', '#795548', '#607D8B', '#F44336', '#8BC34A',
+            '#CDDC39', '#FFC107', '#03A9F4', '#3F51B5', '#8C8172'
+        ];
+
+        let categories = [
+            { id: 'ARQUITECTO', label: 'Arquitecto', icon: '🏛️', color: '#7F77DD' },
+            { id: 'DIRECTIVO', label: 'Directivo', icon: '📊', color: '#378ADD' },
+            { id: 'DIÁCONO', label: 'Diácono', icon: '🤝', color: '#1D9E75' },
+            { id: 'PERSONALES', label: 'Personales', icon: '🌟', color: '#639922' }
+        ];
+
+        let tasks = [
+            { id: 1, titulo: 'Diseñar arquitectura', categoria: 'ARQUITECTO', importancia: 5, urgencia: 4, pomodoros: 3, tipoTiempo: 'pomodoro', completada: false },
+            { id: 2, titulo: 'Revisar propuesta', categoria: 'ARQUITECTO', importancia: 4, urgencia: 5, pomodoros: 2, tipoTiempo: 'pomodoro', completada: true },
+            { id: 3, titulo: 'Reunión directivos', categoria: 'DIRECTIVO', importancia: 5, urgencia: 5, pomodoros: 1, tipoTiempo: 'pomodoro', completada: true },
+            { id: 4, titulo: 'Validar presupuesto', categoria: 'DIRECTIVO', importancia: 4, urgencia: 3, pomodoros: 2, tipoTiempo: 'pomodoro', completada: false },
+            { id: 5, titulo: 'Responder emails', categoria: 'DIÁCONO', importancia: 3, urgencia: 4, pomodoros: 2, tipoTiempo: 'coffee', completada: false },
+            { id: 6, titulo: 'Resolver issues', categoria: 'DIÁCONO', importancia: 2, urgencia: 4, pomodoros: 1, tipoTiempo: 'coffee', completada: true },
+            { id: 7, titulo: 'Ejercicio gimnasio', categoria: 'PERSONALES', importancia: 4, urgencia: 2, pomodoros: 2, tipoTiempo: 'pomodoro', completada: false },
+            { id: 8, titulo: 'Leer libro', categoria: 'PERSONALES', importancia: 3, urgencia: 1, pomodoros: 1, tipoTiempo: 'pomodoro', completada: false },
+        ];
+
+        let planOperativo = localStorage.getItem('planOperativoRodrigo') || '';
+
+        let activeCategory = categories[0].id;
+        let selectedCategory = categories[0].id; // categoria destino al agregar tarea
+        let activeTaskId = null;
+        let currentSort = 'manual';
+        let timerRunning = false;
+        let timeLeft = 25 * 60;
+        let timerInterval = null;
+        let showCompleted = false;
+        let selectedTimerType = 'pomodoro';
+        let colorPickingCategoryId = null;
+        let activeTaskTimeType = 'pomodoro';
+        let moveSelectorOpen = false;
+
+        let newTaskValues = { imp: 3, urg: 3, pom: 2, tipoTiempo: 'pomodoro' };
+
+        function getCategory(id) {
+            return categories.find(c => c.id === id);
+        }
+
+        function getPriority(task) {
+            return Math.round((task.importancia * 1.5 + task.urgencia) * 10) / 10;
+        }
+
+        function getTasksByCategory(catId) {
+            let ct = tasks.filter(t => t.categoria === catId);
+            if (currentSort === 'priority') ct.sort((a,b) => getPriority(b) - getPriority(a));
+            else if (currentSort === 'time') ct.sort((a,b) => b.pomodoros - a.pomodoros);
+            else if (currentSort === 'name') ct.sort((a,b) => a.titulo.localeCompare(b.titulo));
+            return ct;
+        }
+
+        function getTimeIcon(task) {
+            return task.tipoTiempo === 'coffee' ? '☕' : '🍅';
+        }
+        function getTimeBadgeClass(task) {
+            return task.tipoTiempo === 'coffee' ? 'coffee-badge' : 'time-badge';
+        }
+
+        // ---------- CATEGORY TABS ----------
+        function selectActiveCategory(catId) {
+            activeCategory = catId;
+            selectedCategory = catId;
+            activeTaskId = null;
+            document.getElementById('panel').classList.remove('active');
+            document.getElementById('timer').classList.remove('active');
+            render();
+        }
+
+        function renderCategoryTabs() {
+            const wrap = document.getElementById('categoryTabs');
+            wrap.innerHTML = categories.map(cat => {
+                const catTasks = tasks.filter(t => t.categoria === cat.id);
+                const pend = catTasks.filter(t => !t.completada).length;
+                return `
+                    <div class="category-tab ${activeCategory === cat.id ? 'active' : ''}" style="background:${cat.color};" onclick="selectActiveCategory('${cat.id}')">
+                        ${cat.icon} ${cat.label}
+                        <span class="tab-count">${pend} pendiente${pend===1?'':'s'}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ---------- TASKS PANEL (only active category) ----------
+        function renderTasksPanel() {
+            const cat = getCategory(activeCategory);
+            const panel = document.getElementById('tasksPanel');
+            if (!cat) { panel.innerHTML = ''; return; }
+            const catTasks = getTasksByCategory(cat.id);
+            const catComplete = catTasks.filter(t => t.completada).length;
+
+            let itemsHtml = catTasks.map(task => `
+                <div class="task-item ${task.completada ? 'completed' : ''} ${showCompleted && task.completada ? 'show' : ''} ${activeTaskId === task.id ? 'selected' : ''}" onclick="selectTask(${task.id})">
+                    <input type="checkbox" class="task-checkbox" ${task.completada ? 'checked' : ''} onclick="event.stopPropagation(); toggleTask(${task.id});">
+                    <span class="task-title" ondblclick="event.stopPropagation(); editTaskTitle(${task.id})">${task.titulo}</span>
+                    <span class="priority-badge" style="background:${cat.color};">${getPriority(task)}</span>
+                    <span class="${getTimeBadgeClass(task)}">${task.pomodoros}${getTimeIcon(task)}</span>
+                    <button class="task-delete-x" onclick="event.stopPropagation(); deleteTask(${task.id});" title="Eliminar">🗑</button>
+                </div>
+            `).join('');
+
+            if (catTasks.length === 0) {
+                itemsHtml = `<div class="empty-state">No hay tareas en esta categoría todavía.</div>`;
+            }
+
+            panel.innerHTML = `
+                <div class="tasks-panel-header" style="background:${cat.color};">
+                    <span>${cat.icon} ${cat.label}</span>
+                    <span>${catComplete}/${catTasks.length} completadas</span>
+                </div>
+                <div class="tasks-list">${itemsHtml}</div>
+            `;
+        }
+
+        function sortBy(type) {
+            currentSort = type;
+            document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            render();
+        }
+
+        function toggleShowCompleted() {
+            showCompleted = !showCompleted;
+            const btn = document.getElementById('showCompletedBtn');
+            if (showCompleted) {
+                btn.textContent = 'Ocultar realizadas';
+                btn.classList.add('active');
+            } else {
+                btn.textContent = 'Mostrar realizadas';
+                btn.classList.remove('active');
+            }
+            render();
+        }
+
+        function toggleTask(id) {
+            tasks = tasks.map(t => t.id === id ? {...t, completada: !t.completada} : t);
+            render();
+        }
+
+        function deleteTask(id) {
+            if (!confirm('¿Eliminar esta tarea? Esta acción no se puede deshacer.')) return;
+            tasks = tasks.filter(t => t.id !== id);
+            if (activeTaskId === id) closePanel();
+            render();
+        }
+
+        function deleteActiveTask() {
+            if (activeTaskId == null) return;
+            deleteTask(activeTaskId);
+        }
+
+        function editTaskTitle(id) {
+            const task = tasks.find(t => t.id === id);
+            const newTitle = prompt('Editar tarea:', task.titulo);
+            if (newTitle && newTitle.trim()) {
+                tasks = tasks.map(t => t.id === id ? {...t, titulo: newTitle} : t);
+                render();
+            }
+        }
+
+        // ---------- MOVE TASK BETWEEN CATEGORIES ----------
+        function toggleMoveSelector() {
+            moveSelectorOpen = !moveSelectorOpen;
+            renderMoveSelector();
+        }
+
+        function renderMoveSelector() {
+            const sel = document.getElementById('moveSelector');
+            if (!moveSelectorOpen || activeTaskId == null) {
+                sel.classList.remove('active');
+                sel.innerHTML = '';
+                return;
+            }
+            const task = tasks.find(t => t.id === activeTaskId);
+            sel.classList.add('active');
+            sel.innerHTML = categories
+                .filter(c => c.id !== task.categoria)
+                .map(c => `<button class="move-opt-btn" style="background:${c.color};" onclick="moveTaskTo('${c.id}')">${c.icon} ${c.label}</button>`)
+                .join('');
+        }
+
+        function moveTaskTo(catId) {
+            if (activeTaskId == null) return;
+            tasks = tasks.map(t => t.id === activeTaskId ? {...t, categoria: catId} : t);
+            activeCategory = catId;
+            moveSelectorOpen = false;
+            closePanel();
+            render();
+        }
+
+        // ---------- ADD TASK ----------
+        function updateNewTaskValues(field, value) {
+            if (field === 'imp') { newTaskValues.imp = parseInt(value); document.getElementById('newImpValue').textContent = value; }
+            else if (field === 'urg') { newTaskValues.urg = parseInt(value); document.getElementById('newUrgValue').textContent = value; }
+            else if (field === 'pom') { newTaskValues.pom = parseInt(value); document.getElementById('newPomValue').textContent = value; }
+        }
+
+        function setNewTimeType(type) {
+            newTaskValues.tipoTiempo = type;
+            document.getElementById('newPomodoroTypeBtn').classList.toggle('selected', type === 'pomodoro');
+            document.getElementById('newCoffeeTypeBtn').classList.toggle('selected', type === 'coffee');
+            const cat = getCategory(selectedCategory);
+            if (type === 'pomodoro') document.getElementById('newPomodoroTypeBtn').style.background = cat ? cat.color : '#378ADD';
+            else document.getElementById('newCoffeeTypeBtn').style.background = '#8B6F47';
+
+            const label = document.getElementById('newTimeLabel');
+            const slider = document.getElementById('newPomSlider');
+            if (type === 'coffee') {
+                label.innerHTML = 'Café (1/4 pomodoro): <span class="control-group-value" id="newPomValue">2</span>';
+                slider.max = 4;
+                if (newTaskValues.pom > 4) { newTaskValues.pom = 2; slider.value = 2; document.getElementById('newPomValue').textContent = 2; }
+            } else {
+                label.innerHTML = 'Pomodoros: <span class="control-group-value" id="newPomValue">' + newTaskValues.pom + '</span>';
+                slider.max = 15;
+            }
+        }
+
+        function addTask() {
+            const input = document.getElementById('newTaskInput');
+            if (input.value.trim()) {
+                tasks.push({
+                    id: Date.now(),
+                    titulo: input.value,
+                    categoria: selectedCategory,
+                    importancia: newTaskValues.imp,
+                    urgencia: newTaskValues.urg,
+                    pomodoros: newTaskValues.pom,
+                    tipoTiempo: newTaskValues.tipoTiempo,
+                    completada: false
+                });
+                input.value = '';
+                newTaskValues = { imp: 3, urg: 3, pom: 2, tipoTiempo: 'pomodoro' };
+                document.getElementById('newImpSlider').value = 3;
+                document.getElementById('newUrgSlider').value = 3;
+                document.getElementById('newPomSlider').value = 2;
+                document.getElementById('newImpValue').textContent = 3;
+                document.getElementById('newUrgValue').textContent = 3;
+                document.getElementById('newPomValue').textContent = 2;
+                document.getElementById('newPomodoroTypeBtn').classList.add('selected');
+                document.getElementById('newCoffeeTypeBtn').classList.remove('selected');
+                setNewTimeType('pomodoro');
+                render();
+            }
+        }
+
+        // ---------- TASK EDIT PANEL ----------
+        function applyPanelColors(cat) {
+            const bar = document.getElementById('panelTitleBar');
+            bar.style.background = cat.color;
+            document.getElementById('panel').style.borderColor = cat.color;
+            document.getElementById('pomodoroTypeBtn').style.background = cat.color;
+        }
+
+        function selectTask(id) {
+            activeTaskId = id;
+            moveSelectorOpen = false;
+            const task = tasks.find(t => t.id === id);
+            const cat = getCategory(task.categoria);
+            document.getElementById('panelTitle').textContent = task.titulo;
+            document.getElementById('impSlider').value = task.importancia;
+            document.getElementById('impValue').textContent = task.importancia;
+            document.getElementById('urgSlider').value = task.urgencia;
+            document.getElementById('urgValue').textContent = task.urgencia;
+            document.getElementById('pomSlider').value = task.pomodoros;
+            document.getElementById('pomValue').textContent = task.pomodoros;
+
+            applyPanelColors(cat);
+            setTimeType(task.tipoTiempo);
+            renderMoveSelector();
+
+            document.getElementById('panel').classList.add('active');
+            render();
+        }
+
+        function closePanel() {
+            activeTaskId = null;
+            moveSelectorOpen = false;
+            document.getElementById('panel').classList.remove('active');
+            document.getElementById('timer').classList.remove('active');
+            render();
+        }
+
+        function updateActiveTask(field, value) {
+            tasks = tasks.map(t => t.id === activeTaskId ? {...t, [field]: parseInt(value)} : t);
+            if (field === 'importancia') document.getElementById('impValue').textContent = value;
+            if (field === 'urgencia') document.getElementById('urgValue').textContent = value;
+            if (field === 'pomodoros') document.getElementById('pomValue').textContent = value;
+            const activeTask = tasks.find(t => t.id === activeTaskId);
+            if (activeTask) activeTask.tipoTiempo = activeTaskTimeType;
+            render();
+        }
+
+        function setTimeType(type) {
+            activeTaskTimeType = type;
+            document.getElementById('pomodoroTypeBtn').classList.toggle('selected', type === 'pomodoro');
+            document.getElementById('coffeeTypeBtn').classList.toggle('selected', type === 'coffee');
+
+            const task = tasks.find(t => t.id === activeTaskId);
+            const cat = task ? getCategory(task.categoria) : getCategory(activeCategory);
+            document.getElementById('coffeeTypeBtn').style.background = type === 'coffee' ? '#8B6F47' : '';
+            document.getElementById('pomodoroTypeBtn').style.background = type === 'pomodoro' ? (cat ? cat.color : '#378ADD') : '';
+
+            const label = document.getElementById('timeLabel');
+            const slider = document.getElementById('pomSlider');
+            if (type === 'coffee') {
+                label.innerHTML = 'Café (1/4 pomodoro): <span id="pomValue">2</span>';
+                slider.max = 4;
+                if (parseInt(slider.value) > 4) { slider.value = 2; document.getElementById('pomValue').textContent = 2; }
+            } else {
+                label.innerHTML = 'Pomodoros: <span id="pomValue">' + slider.value + '</span>';
+                slider.max = 15;
+            }
+            if (activeTaskId != null) {
+                const t = tasks.find(t => t.id === activeTaskId);
+                if (t) t.tipoTiempo = type;
+                render();
+            }
+        }
+
+        function selectTimerType(type) {
+            selectedTimerType = type;
+            document.querySelectorAll('.timer-opt-btn').forEach(b => b.classList.remove('selected'));
+            event.target.classList.add('selected');
+        }
+
+        function startPomodoro() {
+            document.getElementById('timer').classList.add('active');
+            timeLeft = selectedTimerType === 'pomodoro' ? 25 * 60 : 5 * 60;
+            timerRunning = true;
+            updateTimer();
+        }
+        function toggleTimer() {
+            timerRunning = !timerRunning;
+            if (timerRunning) updateTimer();
+        }
+        function stopTimer() {
+            timerRunning = false;
+            document.getElementById('timer').classList.remove('active');
+            closePanel();
+        }
+        function updateTimer() {
+            if (!timerRunning) return;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                const mins = Math.floor(timeLeft / 60);
+                const secs = timeLeft % 60;
+                document.getElementById('timerDisplay').textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+                if (timeLeft <= 0) { timerRunning = false; clearInterval(timerInterval); }
+            }, 1000);
+        }
+
+        // ---------- PLAN OPERATIVO ----------
+        function openPlanOperativo() {
+            document.getElementById('planOperativoText').value = planOperativo;
+            document.getElementById('planOperativoModal').classList.add('active');
+        }
+        function closePlanOperativo() {
+            document.getElementById('planOperativoModal').classList.remove('active');
+        }
+        function savePlanOperativo() {
+            planOperativo = document.getElementById('planOperativoText').value;
+            localStorage.setItem('planOperativoRodrigo', planOperativo);
+            closePlanOperativo();
+        }
+
+        // ---------- CATEGORY MANAGER ----------
+        function openCategoryManager() {
+            document.getElementById('categoryModal').classList.add('active');
+            renderCategoryList();
+        }
+        function closeCategoryManager() {
+            document.getElementById('categoryModal').classList.remove('active');
+            render();
+        }
+        function renderCategoryList() {
+            const list = document.getElementById('categoriesList');
+            list.innerHTML = categories.map(cat => `
+                <div class="category-item">
+                    <div class="category-item-header">
+                        <span style="font-size: 16px;">${cat.icon}</span>
+                        <span style="font-weight: bold; color: #333;">${cat.label}</span>
+                        <span style="font-size: 10px; color: #999; margin-left: auto;">${cat.color}</span>
+                    </div>
+                    <div class="category-item-inputs">
+                        <input type="text" value="${cat.icon}" onchange="updateCategoryField('${cat.id}', 'icon', this.value)" class="modal-input" placeholder="Emoji">
+                        <input type="text" value="${cat.label}" onchange="updateCategoryField('${cat.id}', 'label', this.value)" class="modal-input" placeholder="Nombre">
+                    </div>
+                    <div class="category-item-buttons">
+                        <button class="cat-item-btn" onclick="openColorPicker('${cat.id}')" style="background: ${cat.color}; color: white;">🎨 Color</button>
+                        <button class="cat-item-btn cat-item-delete" onclick="deleteCategory('${cat.id}')">❌ Eliminar</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        function updateCategoryField(catId, field, value) {
+            categories = categories.map(c => c.id === catId ? {...c, [field]: value} : c);
+            render();
+            renderCategoryList();
+        }
+        function openColorPicker(catId) {
+            colorPickingCategoryId = catId;
+            const cat = categories.find(c => c.id === catId);
+            document.getElementById('colorPickerTitle').textContent = `Elegir color para ${cat.label}`;
+            const palette = document.getElementById('colorPalette');
+            palette.innerHTML = COLOR_PALETTE.map(color => `
+                <div class="color-box ${cat.color === color ? 'selected' : ''}" style="background: ${color};" onclick="selectColor('${color}')"></div>
+            `).join('');
+            document.getElementById('colorPickerModal').classList.add('active');
+        }
+        function selectColor(color) {
+            if (colorPickingCategoryId) {
+                categories = categories.map(c => c.id === colorPickingCategoryId ? {...c, color: color} : c);
+                render();
+                renderCategoryList();
+                document.querySelectorAll('.color-box').forEach(box => box.classList.remove('selected'));
+                event.target.classList.add('selected');
+            }
+        }
+        function acceptColorPicker() {
+            document.getElementById('colorPickerModal').classList.remove('active');
+            colorPickingCategoryId = null;
+        }
+        function closeColorPicker() {
+            document.getElementById('colorPickerModal').classList.remove('active');
+            colorPickingCategoryId = null;
+        }
+        function addCategory() {
+            const icon = document.getElementById('newCatIcon').value.trim();
+            const name = document.getElementById('newCatName').value.trim();
+            if (name && icon) {
+                const randomColor = COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
+                categories.push({
+                    id: name.toUpperCase().replace(/ /g, '_') + '_' + Date.now(),
+                    label: name,
+                    icon: icon,
+                    color: randomColor
+                });
+                document.getElementById('newCatName').value = '';
+                document.getElementById('newCatIcon').value = '';
+                renderCategoryList();
+                render();
+            }
+        }
+        function acceptCategoryChanges() {
+            // Si hay datos de nueva categoría cargados, la agrega
+            const icon = document.getElementById('newCatIcon').value.trim();
+            const name = document.getElementById('newCatName').value.trim();
+            if (name && icon) {
+                addCategory();
+            }
+            // Confirma y cierra (aplica también modificaciones y eliminaciones ya hechas)
+            closeCategoryManager();
+        }
+        function deleteCategory(catId) {
+            if (categories.length <= 1) { alert('Debe existir al menos 1 categoría.'); return; }
+            if (confirm('¿Eliminar esta categoría y sus tareas?')) {
+                categories = categories.filter(c => c.id !== catId);
+                tasks = tasks.filter(t => t.categoria !== catId);
+                if (activeCategory === catId) activeCategory = categories[0].id;
+                if (selectedCategory === catId) selectedCategory = categories[0].id;
+                renderCategoryList();
+                render();
+            }
+        }
+
+        // ---------- MASTER RENDER ----------
+        function render() {
+            const completed = tasks.filter(t => t.completada).length;
+            const pending = tasks.length - completed;
+            document.getElementById('stats').textContent = `${pending} pendientes | ${completed} completadas`;
+
+            renderCategoryTabs();
+            renderTasksPanel();
+            renderMoveSelector();
+
+            const cat = getCategory(selectedCategory) || categories[0];
+            const label = document.getElementById('addingToLabel');
+            label.textContent = `Agregando a: ${cat.icon} ${cat.label}`;
+            label.style.background = cat.color;
+            document.getElementById('newPomodoroTypeBtn').style.background = newTaskValues.tipoTiempo === 'pomodoro' ? cat.color : '';
+        }
+
+        render();
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => console.log('✅ Service Worker registrado:', registration))
+                    .catch(error => console.log('❌ Error registrando Service Worker:', error));
+            });
+        }
+    </script>
+</body>
+</html>
